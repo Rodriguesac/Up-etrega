@@ -1,0 +1,56 @@
+name: Build APK Entregador PainelUP
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Criar arquivo .env
+        run: |
+          echo "VITE_CLOUDINARY_CLOUD_NAME=${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}" >> .env
+          echo "VITE_CLOUDINARY_UPLOAD_PRESET=${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}" >> .env
+
+      - name: Build somente modulo entregador com PainelUP
+        run: npx vite build --config vite.entregador.config.js
+
+      - name: Sincronizar Capacitor Android
+        run: npx cap sync android
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Dar permissao ao Gradle
+        run: chmod +x android/gradlew
+
+      - name: Gerar APK debug
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      - name: Enviar APK para download
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rodrigues-Entregador-PainelUP-V64-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
